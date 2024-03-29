@@ -1,7 +1,16 @@
+# Custom user defined
+.pytest_cache/
+.mypy_cache/
+data/
+htmlcov/
+
+.coverage
+notes.md
+
 # Byte-compiled / optimized / DLL files
-__pycache__/
 *.py[cod]
 *$py.class
+__pycache__/
 
 # C extensions
 *.so
@@ -37,10 +46,8 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
-htmlcov/
 .tox/
 .nox/
-.coverage
 .coverage.*
 .cache
 nosetests.xml
@@ -48,7 +55,6 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
-.pytest_cache/
 cover/
 
 # Translations
@@ -139,7 +145,6 @@ venv.bak/
 /site
 
 # mypy
-.mypy_cache/
 .dmypy.json
 dmypy.json
 
@@ -153,8 +158,7 @@ dmypy.json
 cython_debug/
 
 # PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-#.idea/
+.idea/
+
+# VsCode
+.vscode/
