@@ -3,7 +3,7 @@ from skpm.config import EventLogConfig as elc
 
 
 def get_df(engine="polars"):
-    df = (pl.read_ndjson("./ts-events.json")
+    df = (pl.read_ndjson("data/ts-events.json")
           .rename({"ts": elc.timestamp, "id": elc.case_id, "event": elc.activity})
           .with_columns(pl.from_epoch(elc.timestamp, time_unit="s"))
           .sort(by=[elc.case_id, elc.timestamp]))
