@@ -1,5 +1,6 @@
 from functools import wraps
 from time import time
+from typing import Callable
 
 
 def timing(f, with_args=False):
@@ -17,3 +18,14 @@ def timing(f, with_args=False):
         return result
 
     return wrap
+
+
+def timeit(f: Callable):
+    ts = time()
+    f()
+    te = time()
+    return round(te - ts, 2)
+
+
+def percentage(percent: int, total: int):
+    return int(percent / 100 * total)
