@@ -7,7 +7,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-skpm = {path = "/home/alireza/p/thesis.v.2/skpm"}
+skpm = {path = "../skpm"}
+pytest = "^8.2.0"
 
 
 [build-system]
