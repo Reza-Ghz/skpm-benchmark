@@ -1,7 +1,12 @@
+from typing import List, Union
+
+import pandas as pd
 import polars as pl
 from matplotlib import pyplot as plt
 from pandas import DataFrame as pandasDF
 from polars import DataFrame as polarsDF
+from sklearn.model_selection import train_test_split
+
 from helpers import percentage as percentage_fn, timeit
 
 from skpm.config import EventLogConfig as elc
@@ -17,11 +22,43 @@ def get_df(engine="polars"):
     return df if engine == "polars" else df.to_pandas() if engine == "pandas" else None
 
 
+def get_df_by_trace_length(engine="polars", percents: List[float] = None) -> List[Union[pd.DataFrame, pl.DataFrame]]:
+    df: pd.DataFrame = get_df("pandas")
+    lengths = df.groupby(elc.case_id).size().reset_index().rename(columns={0: "length"})
+    drop = lengths.length.value_counts() == 1 # drop the traces with length 1
+    drop = drop[drop]
+    lengths = lengths[~lengths.length.isin(drop.index)]
+
+    if percents is None:
+        return pl.from_pandas(lengths) if engine == "polars" else lengths if engine == "pandas" else None
+    else:
+        frames = []
+        for dataset_size in percents:
+            _, benchmark_split = train_test_split(lengths, test_size=dataset_size, random_state=42,
+                                                  stratify=lengths.length)
+            benchmark = df[df[elc.case_id].isin(benchmark_split[elc.case_id])]
+            frames.append(benchmark)
+        frames.append(lengths)  # adds the 100%
+        return map(pl.from_pandas, frames) if engine == "polars" else frames if engine == "pandas" else None
+
+
 def get_df_percentage(dataframe: pandasDF | polarsDF, percentage: int = 100):
     return dataframe[:percentage_fn(percentage, len(dataframe))]
 
 
-def get_timings(df, agg_func, win_agg_func, percentages):
+def get_df_percentage_by_sklearn(dataframe: pandasDF | polarsDF, percentage: float = 1):
+    if percentage == 1:
+        return dataframe
+
+    _, benchmark_split = train_test_split(dataframe, test_size=percentage, random_state=42,
+                                          stratify=dataframe["length"])
+    if isinstance(dataframe, pandasDF):
+        return dataframe[dataframe[elc.case_id].isin(benchmark_split[elc.case_id])]
+    if isinstance(dataframe, polarsDF):
+        return dataframe.filter(pl.col(elc.case_id).is_in(benchmark_split[elc.case_id]))
+
+
+def get_timings(df, agg_func, win_agg_func, percentages, percentage_func=get_df_percentage):
     """
     Get aggregation and window aggregation timings for a dataframe.
 
@@ -36,7 +73,7 @@ def get_timings(df, agg_func, win_agg_func, percentages):
     """
     df_timings = {}
     for percentage in percentages:
-        subset_df = get_df_percentage(df, percentage)
+        subset_df = percentage_func(df, percentage)
         agg_time = timeit(lambda: agg_func(subset_df))
         win_agg_time = timeit(lambda: win_agg_func(subset_df))
         df_timings[percentage] = (agg_time, win_agg_time)
