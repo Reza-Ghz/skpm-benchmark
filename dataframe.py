@@ -10,6 +10,32 @@ from sklearn.model_selection import train_test_split
 from helpers import percentage as percentage_fn, timeit
 
 from skpm.config import EventLogConfig as elc
+import skpm.event_logs as el
+
+
+def preprocess_bpi(df: pl.DataFrame) -> pd.DataFrame:
+    df = df.to_dummies(columns=[elc.activity])
+    df = df.drop(elc.timestamp)
+    return df
+
+
+def get_all_bpi(engine="polars"):
+    bpi_list = map(el.__dict__.get, el.__all__)
+    dataframes = []
+    for bpi in bpi_list:
+        event = bpi()
+        df = pl.from_pandas(event.log)
+        df = preprocess_bpi(df)
+        df = df if engine == "polars" else df.to_pandas()
+        dataframes.append(df)
+    return dataframes
+
+
+def get_bpi12(engine="polars"):
+    bpi12 = el.BPI12()
+    df = pl.from_pandas(bpi12.log)
+    df = preprocess_bpi(df)
+    return df if engine == "polars" else df.to_pandas() if engine == "pandas" else None
 
 
 def get_df(engine="polars"):
@@ -22,10 +48,14 @@ def get_df(engine="polars"):
     return df if engine == "polars" else df.to_pandas() if engine == "pandas" else None
 
 
-def get_df_by_trace_length(engine="polars", percents: List[float] = None) -> List[Union[pd.DataFrame, pl.DataFrame]]:
-    df: pd.DataFrame = get_df("pandas")
+def get_df_by_trace_length(engine="polars", percents: List[float] = None,
+                           df: Union[pl.DataFrame, pd.DataFrame] = None) -> List[Union[pd.DataFrame, pl.DataFrame]]:
+    if df is None:
+        df: pd.DataFrame = get_df("pandas")
+    elif isinstance(df, pl.DataFrame):
+        df = df.to_pandas()
     lengths = df.groupby(elc.case_id).size().reset_index().rename(columns={0: "length"})
-    drop = lengths.length.value_counts() == 1 # drop the traces with length 1
+    drop = lengths.length.value_counts() == 1  # drop the traces with length 1
     drop = drop[drop]
     lengths = lengths[~lengths.length.isin(drop.index)]
 
