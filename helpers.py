@@ -1,3 +1,4 @@
+import tracemalloc
 from functools import wraps
 from time import time
 from typing import Callable
@@ -20,11 +21,21 @@ def timing(f, with_args=False):
     return wrap
 
 
-def timeit(f: Callable):
+def timeit(f: Callable) -> (any, int):
     ts = time()
-    f()
+    res = f()
     te = time()
-    return round(te - ts, 2)
+    return res, round(te - ts, 2)
+
+
+def memoryit(f: Callable) -> (any, int):
+    try:
+        tracemalloc.start()
+        res = f()
+        return res, round(tracemalloc.get_traced_memory()[1] / 1_048_576, 2)
+    finally:
+        tracemalloc.clear_traces()
+        tracemalloc.stop()
 
 
 def percentage(percent: int, total: int):
