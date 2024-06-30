@@ -7,7 +7,7 @@ from pandas import DataFrame as pandasDF
 from polars import DataFrame as polarsDF
 from sklearn.model_selection import train_test_split
 
-from helpers import percentage as percentage_fn, timeit
+from helpers import percentage as percentage_fn, timeit, memoryit
 
 from skpm.config import EventLogConfig as elc
 import skpm.event_logs as el
@@ -20,7 +20,7 @@ def preprocess_bpi(df: pl.DataFrame) -> pd.DataFrame:
 
 
 def get_all_bpi(engine="polars"):
-    bpi_list = map(el.__dict__.get, el.__all__)
+    bpi_list = [el.BPI12, el.BPI13ClosedProblems, el.BPI13Incidents, el.BPI17, el.BPI19]
     dataframes = []
     for bpi in bpi_list:
         event = bpi()
@@ -39,7 +39,7 @@ def get_bpi12(engine="polars"):
 
 
 def get_df(engine="polars"):
-    df = (pl.read_ndjson("data/ts-events.json")
+    df = (pl.read_ndjson("logs/ts-events.json")
           .rename({"ts": elc.timestamp, "id": elc.case_id, "event": elc.activity})
           .with_columns(pl.from_epoch(elc.timestamp, time_unit="s"))
           .sort(by=[elc.case_id, elc.timestamp]))
@@ -49,7 +49,8 @@ def get_df(engine="polars"):
 
 
 def get_df_by_trace_length(engine="polars", percents: List[float] = None,
-                           df: Union[pl.DataFrame, pd.DataFrame] = None) -> List[Union[pd.DataFrame, pl.DataFrame]]:
+                           df: Union[pl.DataFrame, pd.DataFrame] = None) -> List[Union[pd.DataFrame, pl.DataFrame]] | \
+                                                                            Union[pd.DataFrame, pl.DataFrame]:
     if df is None:
         df: pd.DataFrame = get_df("pandas")
     elif isinstance(df, pl.DataFrame):
@@ -88,7 +89,7 @@ def get_df_percentage_by_sklearn(dataframe: pandasDF | polarsDF, percentage: flo
         return dataframe.filter(pl.col(elc.case_id).is_in(benchmark_split[elc.case_id]))
 
 
-def get_timings(df, agg_func, win_agg_func, percentages, percentage_func=get_df_percentage):
+def get_time_and_memory(df, agg_func, win_agg_func, percentages, percentage_func=get_df_percentage):
     """
     Get aggregation and window aggregation timings for a dataframe.
 
@@ -102,12 +103,14 @@ def get_timings(df, agg_func, win_agg_func, percentages, percentage_func=get_df_
     dict: Dictionary with percentage as keys and tuple of timings as values.
     """
     df_timings = {}
+    df_memories = {}
     for percentage in percentages:
         subset_df = percentage_func(df, percentage)
-        agg_time = timeit(lambda: agg_func(subset_df))
-        win_agg_time = timeit(lambda: win_agg_func(subset_df))
+        (_, agg_memory), agg_time = timeit(lambda: memoryit(lambda: agg_func(subset_df)))
+        (_, win_agg_memory), win_agg_time = timeit(lambda: memoryit(lambda: win_agg_func(subset_df)))
         df_timings[percentage] = (agg_time, win_agg_time)
-    return df_timings
+        df_memories[percentage] = (agg_memory, win_agg_memory)
+    return df_timings, df_memories
 
 
 def plot_timings(percentages, total, polars_agg_times, pandas_agg_times, polars_win_agg_times, pandas_win_agg_times):
@@ -136,6 +139,41 @@ def plot_timings(percentages, total, polars_agg_times, pandas_agg_times, polars_
     ax2.plot(percentages, pandas_win_agg_times, label='Pandas Win Agg', marker='o')
     ax2.set_xlabel(f'Percentage of DataFrame (total {total})')
     ax2.set_ylabel('Time (seconds)')
+    ax2.set_title('Window Aggregation Time Comparison (Polars vs Pandas)')
+    ax2.legend()
+
+    # Show plots
+    plt.tight_layout()
+    plt.show()
+
+
+def plot_memories(percentages, total, polars_agg_memory, pandas_agg_memory, polars_win_agg_memory,
+                  pandas_win_agg_memory):
+    """
+    Plot the aggregation and window aggregation timings.
+
+    Parameters:
+    percentages (list): List of percentages to test.
+    polars_agg_memory (list): List of polars aggregation times.
+    pandas_agg_memory (list): List of pandas aggregation times.
+    polars_win_agg_memory (list): List of polars window aggregation times.
+    pandas_win_agg_memory (list): List of pandas window aggregation times.
+    """
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 5))
+
+    # Plot Aggregation results
+    ax1.plot(percentages, polars_agg_memory, label='Polars Agg', marker='o')
+    ax1.plot(percentages, pandas_agg_memory, label='Pandas Agg', marker='o')
+    ax1.set_xlabel(f'Percentage of DataFrame (total {total})')
+    ax1.set_ylabel('Memory (MB)')
+    ax1.set_title('Aggregation Time Comparison (Polars vs Pandas)')
+    ax1.legend()
+
+    # Plot Window Aggregation results
+    ax2.plot(percentages, polars_win_agg_memory, label='Polars Win Agg', marker='o')
+    ax2.plot(percentages, pandas_win_agg_memory, label='Pandas Win Agg', marker='o')
+    ax2.set_xlabel(f'Percentage of DataFrame (total {total})')
+    ax2.set_ylabel('Memory (MB)')
     ax2.set_title('Window Aggregation Time Comparison (Polars vs Pandas)')
     ax2.legend()
 
