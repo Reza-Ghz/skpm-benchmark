@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Union
 
 import pandas as pd
@@ -145,6 +146,7 @@ def plot_timings(percentages, total, polars_agg_times, pandas_agg_times, polars_
     # Show plots
     plt.tight_layout()
     plt.show()
+    fig.savefig(f'{str(uuid.uuid4())[:8]}.png')
 
 
 def plot_memories(percentages, total, polars_agg_memory, pandas_agg_memory, polars_win_agg_memory,
@@ -180,3 +182,4 @@ def plot_memories(percentages, total, polars_agg_memory, pandas_agg_memory, pola
     # Show plots
     plt.tight_layout()
     plt.show()
+    fig.savefig(f'{str(uuid.uuid4())[:8]}.png')
