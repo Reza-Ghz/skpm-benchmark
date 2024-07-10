@@ -1,6 +1,6 @@
 import pandas as pd
 import polars as pl
-from skpm.encoding import Aggregation, WindowAggregation
+from skpm.encoding import Aggregation
 
 from helpers import timing
 
@@ -25,7 +25,7 @@ def agg_polars(df: pl.DataFrame):
 
 @timing
 def win_agg_pandas(df: pd.DataFrame):
-    rp = WindowAggregation(window_size=3, num_method="sum", cat_method="sum", engine="pandas").set_output(
+    rp = Aggregation(window_size=3, num_method="sum", cat_method="sum", engine="pandas").set_output(
         transform="pandas")
     rp.fit(df)
     out = rp.transform(df)
@@ -35,7 +35,7 @@ def win_agg_pandas(df: pd.DataFrame):
 
 @timing
 def win_agg_polars(df: pl.DataFrame):
-    rp = WindowAggregation(window_size=3, num_method="sum", cat_method="sum", engine="polars").set_output(
+    rp = Aggregation(window_size=3, num_method="sum", cat_method="sum", engine="polars").set_output(
         transform="pandas")
     rp.fit(df)
     out = rp.transform(df)
