@@ -1,3 +1,5 @@
+import colorsys
+import random
 import uuid
 from typing import List, Union
 
@@ -24,13 +26,15 @@ def preprocess_bpi(df: pl.DataFrame) -> pd.DataFrame:
 def get_all_bpi(engine="polars"):
     bpi_list = [el.BPI12, el.BPI13ClosedProblems, el.BPI13Incidents, el.BPI17, el.BPI19]
     dataframes = []
+    names = []
     for bpi in bpi_list:
         event = bpi()
         df = pl.from_pandas(event.log)
         df = preprocess_bpi(df)
         df = df if engine == "polars" else df.to_pandas()
         dataframes.append(df)
-    return dataframes
+        names.append(bpi.__name__)
+    return dataframes, names
 
 
 def get_bpi12(engine="polars"):
@@ -161,7 +165,7 @@ def get_time_and_memory_by_trace_length(df, agg_func, win_agg_func, lengths: Lis
 
 def plot_timings(percentages, total, polars_agg_times, pandas_agg_times, polars_win_agg_times, pandas_win_agg_times,
                  x_label: str = None, y_label: str = None, title_1: str = None,
-                 title_2: str = None):
+                 title_2: str = None,filename:str = str(uuid.uuid4())[:8]):
     """
     Plot the aggregation and window aggregation timings.
 
@@ -193,25 +197,23 @@ def plot_timings(percentages, total, polars_agg_times, pandas_agg_times, polars_
     # Show plots
     plt.tight_layout()
     plt.show()
-    fig.savefig(f'{str(uuid.uuid4())[:8]}.png')
+    fig.savefig(f'{filename}-time.png')
 
 
-def plot_timings_bar(groups, values, labels=None):
+def plot_timings_grouped_bars(groups, values, labels=None):
     if labels is None:
         labels = [f'Round {i}' for i in range(len(values))]
-    width = 0.1  # the width of the bars
+    width = 0.05  # the width of the bars
 
-    fig, ax = plt.subplots()
-    ax.autoscale(enable=True)
+    fig, ax = plt.subplots(figsize=(16, 10))
 
     x = np.arange(len(groups))  # the label locations
     num_values = len(values)
 
     for i in range(num_values):
-        ax.bar(x + i*width - width*(num_values-1)/2, values[i], width, label=labels[i])
+        ax.bar(x + (i * width) - width * (num_values - 1) / 2, values[i], width, label=labels[i])
 
-
-# Adding labels, title, and legend
+    # Adding labels, title, and legend
     ax.set_xlabel('Rounds')
     ax.set_ylabel('Time')
     ax.set_title('Time Comparison')
@@ -223,9 +225,32 @@ def plot_timings_bar(groups, values, labels=None):
     fig.savefig(f'{str(uuid.uuid4())[:8]}.png')
 
 
+def plot_timings_bar(categories, values, filename):
+    colors = ['#%06X' % random.randint(0, 0xFFFFFF) for _ in range(len(categories))]
+
+    # Create the figure and axis objects
+    fig, ax = plt.subplots()
+
+    # Create the bar plot
+    ax.bar(categories, values, color=colors)
+
+    ax.set_xticks(range(len(categories)))
+    # Customize the x-axis labels
+    ax.set_xticklabels(categories, rotation=45, fontsize=6)
+
+    # Add title and labels
+    ax.set_xlabel('')
+    ax.set_ylabel('Time')
+    ax.set_title('Time Comparison')
+
+    fig.savefig(f'{filename}-bars.png')
+    plt.show()
+
+
+
 def plot_memories(percentages, total, polars_agg_memory, pandas_agg_memory, polars_win_agg_memory,
                   pandas_win_agg_memory, x_label: str = None, y_label: str = None, title_1: str = None,
-                  title_2: str = None):
+                  title_2: str = None, filename:str = str(uuid.uuid4())[:8]):
     """
     Plot the aggregation and window aggregation timings.
 
@@ -257,4 +282,4 @@ def plot_memories(percentages, total, polars_agg_memory, pandas_agg_memory, pola
     # Show plots
     plt.tight_layout()
     plt.show()
-    fig.savefig(f'{str(uuid.uuid4())[:8]}.png')
+    fig.savefig(f'{filename}-mem.png')
