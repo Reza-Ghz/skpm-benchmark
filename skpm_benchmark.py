@@ -1,10 +1,15 @@
+import json
+import time
+
+import numpy as np
 import pandas as pd
 import polars as pl
+import psutil
 
 from dataframe import get_df, get_time_and_memory, plot_timings, get_stratified_df_by_trace_length, \
     get_df_percentage_by_sklearn, \
     plot_memories, get_all_bpi, get_time_and_memory_by_trace_length, get_df_by_trace_length, plot_timings_bar, \
-    plot_timings_grouped_bars
+    plot_timings_grouped_bars, get_df_pd
 from processing import agg_pandas, agg_polars, win_agg_polars, win_agg_pandas
 
 
@@ -69,6 +74,70 @@ def benchmark_by_trace_lengths(polars_df: pl.DataFrame, pandas_df: pd.DataFrame,
     # Plot Memory
     plot_memories(lengths_pandas, total, polars_agg_memory, pandas_agg_memory, polars_win_agg_memory,
                   pandas_win_agg_memory, x_label='Length of trace', filename=df_name)
+    data = {
+        "polars_agg_times": polars_agg_times,
+        "pandas_agg_times": pandas_agg_times,
+        "polars_win_agg_times": polars_win_agg_times,
+        "pandas_win_agg_times": pandas_win_agg_times,
+        "polars_agg_memory": polars_agg_memory,
+        "pandas_agg_memory": pandas_agg_memory,
+        "polars_win_agg_memory": polars_win_agg_memory,
+        "pandas_win_agg_memory": pandas_win_agg_memory
+    }
+
+    with open("out.json", 'w') as fout:
+        json.dump(data, fout, indent=4)
+
+    agg_time_diff = np.abs(np.array(polars_agg_times) - np.array(pandas_agg_times))
+    win_agg_time_diff = np.abs(np.array(polars_win_agg_times) - np.array(pandas_win_agg_times))
+    agg_memory_diff = np.abs(np.array(polars_agg_memory) - np.array(pandas_agg_memory))
+    win_agg_memory_diff = np.abs(np.array(polars_win_agg_memory) - np.array(pandas_win_agg_memory))
+
+    average_time_diff = np.mean(np.concatenate([agg_time_diff, win_agg_time_diff]))
+    average_memory_diff = np.mean(np.concatenate([agg_memory_diff, win_agg_memory_diff]))
+
+    agg_time_ratio = np.array(pandas_agg_times) / np.array(polars_agg_times)
+    win_agg_time_ratio = np.array(pandas_win_agg_times) / np.array(polars_win_agg_times)
+    agg_memory_ratio = np.array(pandas_agg_memory) / np.array(polars_agg_memory)
+    win_agg_memory_ratio = np.array(pandas_win_agg_memory) / np.array(polars_win_agg_memory)
+
+    average_time_ratio = np.mean(np.concatenate([agg_time_ratio, win_agg_time_ratio]))
+    average_memory_ratio = np.mean(np.concatenate([agg_memory_ratio, win_agg_memory_ratio]))
+
+    print("average time ratio:", average_time_ratio, "average mem ratio", average_memory_ratio)
+    print("average time diff:", average_time_diff, "average mem diff", average_memory_diff)
+
+
+
+def measure_loading_performance():
+    # Measure the execution time and memory usage of get_df_polars
+    start_time = time.time()
+    process = psutil.Process()
+    start_mem_polars = process.memory_info().rss
+    df_polars = get_df()
+    polars_time = time.time() - start_time
+    polars_memory = process.memory_info().rss - start_mem_polars
+
+    # Measure the execution time and memory usage of get_df_pandas
+    start_time = time.time()
+    start_mem_pandas = process.memory_info().rss
+    df_pandas = get_df_pd()
+    pandas_time = time.time() - start_time
+    pandas_memory = process.memory_info().rss - start_mem_pandas
+
+    # Differences
+    time_diff = np.abs(polars_time - pandas_time)
+    memory_diff = np.abs(polars_memory - pandas_memory)
+
+    # Ratios
+    time_ratio = pandas_time / polars_time
+    memory_ratio = pandas_memory / polars_memory
+
+    print(f"Polars Time: {polars_time}, Pandas Time: {pandas_time}")
+    print(f"Polars Memory: {polars_memory}, Pandas Memory: {pandas_memory}")
+    print(f"Average Time Difference: {time_diff}, Average Memory Difference: {memory_diff}")
+    print(f"Average Time Ratio: {time_ratio}, Average Memory Ratio: {memory_ratio}")
+
 
 
 def benchmark_by_trace_lengths_by_percent(polars_df: pl.DataFrame, pandas_df: pd.DataFrame):
@@ -158,7 +227,7 @@ def main():
     # pandas_df = get_df("pandas")[:2000]
     # benchmark_by_cases(polars_df, pandas_df)
 
-    run_BPI_benchmark()
+    # run_BPI_benchmark()
 
     # percent = 0.02
     # polars_df = get_df_by_trace_length("polars")
@@ -175,10 +244,13 @@ def main():
     #     if names[i] == "BPI19":
     #         df = df[:500000]
     #     else:
-    #         continue
+    #         # continue
+    #         pass
     #     polars_df = get_df_by_trace_length("polars", df=df)
     #     pandas_df = get_df_by_trace_length("pandas", df=df)
     #     benchmark_by_trace_lengths(polars_df, pandas_df, names[i])
+
+    measure_loading_performance()
 
 
 if __name__ == '__main__':

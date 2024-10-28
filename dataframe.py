@@ -25,6 +25,7 @@ def preprocess_bpi(df: pl.DataFrame) -> pd.DataFrame:
 
 def get_all_bpi(engine="polars"):
     bpi_list = [el.BPI12, el.BPI13ClosedProblems, el.BPI13Incidents, el.BPI17, el.BPI19]
+    bpi_list = [el.BPI17]
     dataframes = []
     names = []
     for bpi in bpi_list:
@@ -52,6 +53,17 @@ def get_df(engine="polars"):
     df = df.to_dummies(columns=[elc.activity])
     df = df.drop(elc.timestamp)
     return df if engine == "polars" else df.to_pandas() if engine == "pandas" else None
+
+import pandas as pd
+
+def get_df_pd():
+    df = pd.read_json("logs/ts-events.json", lines=True)
+    df = df.rename(columns={"ts": "timestamp", "id": "case_id", "event": "activity"})
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+    df = df.sort_values(by=['case_id', 'timestamp'])
+    df = pd.get_dummies(df, columns=['activity'])
+    df = df.drop(columns=['timestamp'])
+    return df
 
 
 def get_df_by_trace_length(engine="polars", df: Union[pl.DataFrame, pd.DataFrame] = None):
